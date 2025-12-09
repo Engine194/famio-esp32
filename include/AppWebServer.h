@@ -13,8 +13,7 @@ public:
     // Constructor nhận con trỏ của các module khác
     AppWebServer(FMRadio* radio, PowerManager* power, FileManager* fileMgr);
 
-    // Khởi tạo và kết nối Wi-Fi
-    bool begin(const char* ssid, const char* password); 
+    bool begin(); 
 
     // QUAN TRỌNG: Hàm này PHẢI được gọi liên tục trong loop()
     void handleClient(); 

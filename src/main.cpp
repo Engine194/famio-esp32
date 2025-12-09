@@ -66,7 +66,7 @@ void setup() {
     fmRadio.begin(); 
     
     // 4. KHỞI TẠO WEB SERVER
-    appWebServer.begin(WiFi.SSID().c_str(), WiFi.psk().c_str());
+    appWebServer.begin();
 
     Serial.printf("Hệ thống đã sẵn sàng tại http://famio.local (IP: %s)\n", WiFi.localIP().toString().c_str());
 }

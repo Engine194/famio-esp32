@@ -15,29 +15,7 @@ AppWebServer::AppWebServer(FMRadio* radio, PowerManager* power, FileManager* fil
 // Khởi tạo Wi-Fi và Server
 // =========================================================
 
-bool AppWebServer::begin(const char* ssid, const char* password) {
-    Serial.printf("Đang kết nối Wi-Fi tới SSID: %s\n", ssid);
-    
-    // Khởi tạo Wi-Fi
-    WiFi.begin(ssid, password);
-
-    // Chờ kết nối (có thể giới hạn thời gian chờ)
-    int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-        delay(500);
-        Serial.print(".");
-        attempts++;
-    }
-
-    if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("\nLỗi: Kết nối Wi-Fi thất bại.");
-        return false;
-    }
-
-    Serial.println("\nKết nối Wi-Fi thành công!");
-    Serial.print("Địa chỉ IP: ");
-    Serial.println(WiFi.localIP());
-
+bool AppWebServer::begin() {
     // Đăng ký tất cả các API endpoints
     registerAPIs();
     
