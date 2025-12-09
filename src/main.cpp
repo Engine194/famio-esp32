@@ -48,11 +48,13 @@ void setup() {
     
     // Lấy các giá trị (sử dụng toán tử | để cung cấp giá trị mặc định)
     const char* apSsid = config["wifi"]["ap_ssid"] | "Famio_Radio_Setup_AP";
+    // Mật khẩu mặc định: "12345678"
+    const char* apPassword = config["wifi"]["ap_password"] | "12345678"; 
     int initialVolume = config["volume"] | 50;
     float initialFreq = config["freq"] | 99.5f;
 
     // 2. QUẢN LÝ KẾT NỐI WI-FI
-    if (!connectivityManager.begin(apSsid)) {
+    if (!connectivityManager.begin(apSsid, apPassword)) {
         // Nếu kết nối/cấu hình thất bại, khởi động lại để thử lại
         Serial.println("Hệ thống không thể kết nối. Khởi động lại sau 5s.");
         delay(5000);

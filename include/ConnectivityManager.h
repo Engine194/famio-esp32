@@ -13,7 +13,7 @@ public:
 
     // Khởi tạo Wi-Fi, chạy Portal nếu cần, và khởi động mDNS.
     // Nhận tên AP_SSID cho chế độ Portal từ config.json
-    bool begin(const char* ssid_ap);
+    bool begin(const char* ssid_ap, const char* password_ap);
 
 private:
     // Tên miền mDNS cố định (ví dụ: http://famio.local)

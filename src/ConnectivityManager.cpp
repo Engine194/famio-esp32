@@ -5,7 +5,7 @@ ConnectivityManager::ConnectivityManager() {
 }
 
 // Sử dụng tham số ssid_ap để đặt tên AP và xử lý logic kết nối
-bool ConnectivityManager::begin(const char* ssid_ap) {
+bool ConnectivityManager::begin(const char* ssid_ap, const char* password_ap) {
     Serial.println("ConnectivityManager: Bắt đầu quản lý kết nối Wi-Fi...");
 
     WiFiManager wm;
@@ -14,7 +14,7 @@ bool ConnectivityManager::begin(const char* ssid_ap) {
     wm.setTimeout(180); 
     
     // Thử kết nối với thông tin đã lưu. Nếu thất bại, tự động mở AP với tên được truyền vào.
-    if (!wm.autoConnect(ssid_ap)) { 
+    if (!wm.autoConnect(ssid_ap, password_ap)) { 
         // --- XỬ LÝ KHÔNG CẤU HÌNH ĐƯỢC ---
         Serial.println("Lỗi: Không thể kết nối hoặc cấu hình. Hệ thống sẽ khởi động lại.");
         return false;
