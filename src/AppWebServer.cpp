@@ -1,9 +1,10 @@
 #include "AppWebServer.h"
 #include <ArduinoJson.h>
+#include <ConnectivityManager.h>
 
 // Constructor: Khởi tạo Web Server ở cổng 80 và lưu trữ con trỏ
-AppWebServer::AppWebServer(FMRadio* radio, PowerManager* power, FileManager* fileMgr) 
-    : server(80), fmRadio(radio), powerManager(power), fileManager(fileMgr) {
+AppWebServer::AppWebServer(FMRadio* radio, PowerManager* power, FileManager* fileMgr, ConnectivityManager* connectivity) 
+    : server(80), fmRadio(radio), powerManager(power), fileManager(fileMgr), connectivity(connectivity)  {
     
     // Kiểm tra tính hợp lệ của con trỏ (tùy chọn)
     if (!fmRadio || !powerManager || !fileManager) {
@@ -29,20 +30,25 @@ bool AppWebServer::begin() {
 // =========================================================
 
 void AppWebServer::registerAPIs() {
+    
+    // API Lấy trạng thái FM
+    server.on("/api/fm/status", HTTP_GET, std::bind(&AppWebServer::handleFmStatus, this));
+    
+    // API Điều chỉnh tần số (POST)
+    server.on("/api/fm/tune", HTTP_POST, std::bind(&AppWebServer::handleFmTune, this));
+    
+    // API Điều chỉnh âm lượng
+    server.on("/api/system/volume", HTTP_POST, std::bind(&AppWebServer::handleSystemVolume, this));
+    
+    // API Cấu hình Wi-Fi
+    server.on("/api/wifi/status", HTTP_GET, std::bind(&AppWebServer::handleGetWifiStatus, this));
+    server.on("/api/wifi/scan", HTTP_GET, std::bind(&AppWebServer::handleScanNetworks, this));
+    server.on("/api/wifi/config", HTTP_POST, std::bind(&AppWebServer::handleSubmitWifiConfig, this));
+    server.on("/api/wifi/reset", HTTP_POST, std::bind(&AppWebServer::handleResetWifiConfig, this));
+
     // 1. Root ("/") - Trang chính
     server.on("/", HTTP_GET, std::bind(&AppWebServer::handleRoot, this));
-
-    // 2. API Lấy trạng thái FM
-    server.on("/api/fm/status", HTTP_GET, std::bind(&AppWebServer::handleFmStatus, this));
-
-    // 3. API Điều chỉnh tần số (POST)
-    server.on("/api/fm/tune", HTTP_POST, std::bind(&AppWebServer::handleFmTune, this));
-
-    // 4. API Điều chỉnh âm lượng
-    server.on("/api/system/volume", HTTP_POST, std::bind(&AppWebServer::handleSystemVolume, this));
-
-    // 5. File tĩnh (Sử dụng onNotFound để bắt các URL khác)
-    server.onNotFound(std::bind(&AppWebServer::handleStaticFile, this));
+    AppWebServer::handleStaticFile();
 }
 
 // =========================================================
@@ -51,7 +57,7 @@ void AppWebServer::registerAPIs() {
 
 void AppWebServer::handleRoot() {
     // Phục vụ file index.html từ thẻ SD
-    File file = fileManager->openFile("/index.html");
+    File file = fileManager->openFile(UI_PATH "/index.html");
     if (file) {
         server.streamFile(file, "text/html");
         file.close();
@@ -60,17 +66,8 @@ void AppWebServer::handleRoot() {
     }
 }
 
-void AppWebServer::handleStaticFile() {
-    String path = server.uri(); 
-    File file = fileManager->openFile(path.c_str());
-
-    if (file) {
-        // Gửi file với MIME type tự động đoán
-        server.streamFile(file, path); 
-        file.close();
-    } else {
-        server.send(404, "text/plain", "File Not Found");
-    }
+void AppWebServer:: handleStaticFile () {
+    server.serveStatic("/", SD, PROJECT_ROOT_DIR "/ui/");
 }
 
 void AppWebServer::handleFmStatus() {
@@ -127,4 +124,74 @@ void AppWebServer::handleSystemVolume() {
 void AppWebServer::handleClient() {
     // Hàm này phải được gọi liên tục trong main loop() để Web Server hoạt động
     server.handleClient();
+}
+
+// --- XỬ LÝ API WIFI ---
+
+void AppWebServer::handleGetWifiStatus() {
+    JsonDocument doc;
+    doc["isOperational"] = connectivity->isOperational();
+    doc["ip"] = connectivity->isOperational() ? WiFi.localIP().toString() : WiFi.softAPIP().toString();
+    
+    String jsonResponse;
+    serializeJson(doc, jsonResponse);
+    server.send(200, "application/json", jsonResponse);
+}
+
+void AppWebServer::handleScanNetworks() {
+    int state = connectivity->startScanNetworks();
+    JsonDocument doc; // Kích thước lớn hơn để chứa danh sách mạng
+    
+    if (state == -1) {
+        // Đang quét
+        doc["status"] = "scanning";
+    } else if (state == -2) {
+        // Chưa quét/Quét bị xóa, gọi lại scan để kích hoạt
+        doc["status"] = "ready_to_scan";
+        connectivity->startScanNetworks(); // Gọi lại để bắt đầu quét
+    } else {
+        // Quét hoàn tất (state >= 0)
+        doc["status"] = "complete";
+        doc["count"] = state;
+        JsonArray networks = doc["networks"].to<JsonArray>();
+        connectivity->getScanResults(networks);
+    }
+    String jsonResponse;
+    serializeJson(doc, jsonResponse);
+    server.send(200, "application/json", jsonResponse);
+}
+
+void AppWebServer::handleSubmitWifiConfig() {
+    // Giả định dữ liệu gửi lên là JSON: {"ssid": "...", "pass": "..."}
+    if (server.method() != HTTP_POST || !server.hasArg("plain")) {
+        server.send(400, "text/plain", "Bad Request");
+        return;
+    }
+
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, server.arg("plain"));
+    if (error) {
+        server.send(400, "text/plain", "Invalid JSON");
+        return;
+    }
+
+    String ssid = doc["ssid"].as<String>();
+    String pass = doc["pass"].as<String>();
+    
+    if (connectivity->checkAndSaveCredentials(ssid, pass)) {
+        // Kết nối thành công, đã lưu config. Phản hồi và reset.
+        server.send(200, "application/json", "{\"status\":\"success\", \"message\":\"Config saved. Restarting device.\"}" );
+        delay(100);
+        ESP.restart(); // Thực hiện reset
+    } else {
+        // Kết nối thất bại/timeout
+        server.send(400, "application/json", "{\"status\":\"failed\", \"message\":\"Connection failed or timeout after 30s. Check credentials.\"}" );
+    }
+}
+
+void AppWebServer::handleResetWifiConfig() {
+    // API đưa về Provisioning Mode
+    server.send(200, "application/json", "{\"status\":\"success\", \"message\":\"Resetting to Provisioning Mode. Device will restart.\"}" );
+    delay(100);
+    connectivity->resetToProvisioning(); // Thực hiện reset
 }

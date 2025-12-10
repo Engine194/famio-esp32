@@ -1,23 +1,64 @@
 #ifndef CONNECTIVITYMANAGER_H
 #define CONNECTIVITYMANAGER_H
 
-#include <Arduino.h>
-#include <WiFiManager.h>
-#include <ESPmDNS.h>
 #include <WiFi.h>
+#include <Preferences.h>
+#include <ArduinoJson.h>
+#include "FileManager.h" // Cần để truy cập FileManager
+
+// Hằng số
+#define CONNECTION_TIMEOUT_S 30
+#define AP_PASSWORD "12345678" // Mật khẩu tối thiểu 8 ký tự
 
 class ConnectivityManager {
 public:
-    // Constructor
-    ConnectivityManager();
+    // Cấu trúc để lưu kết quả quét
+    struct ScanResult {
+        String ssid;
+        int rssi;
+    };
+    
+    // Constructor nhận FileManager
+    ConnectivityManager(FileManager* fileManager);
 
-    // Khởi tạo Wi-Fi, chạy Portal nếu cần, và khởi động mDNS.
-    // Nhận tên AP_SSID cho chế độ Portal từ config.json
-    bool begin(const char* ssid_ap, const char* password_ap);
+    // Hàm chính khởi tạo và thiết lập chế độ Wi-Fi
+    // Trả về TRUE nếu ở chế độ Operational (STA), FALSE nếu ở chế độ Provisioning (AP+STA)
+    bool begin();
+
+    // Lấy trạng thái hoạt động hiện tại
+    bool isOperational() const { return operational_mode; }
+
+    // --- Hàm phục vụ API ---
+    
+    // API: Thực hiện Quét mạng Wi-Fi (Non-blocking)
+    // Trả về -1: đang quét, -2: chưa quét, >=0: số mạng tìm thấy
+    int startScanNetworks();
+    
+    // API: Lấy kết quả quét sau khi scanNetworks() hoàn tất
+    // Trả về một JsonArray chứa danh sách mạng
+    void getScanResults(JsonArray& array);
+
+    // API: Kiểm tra Credentials và lưu nếu thành công
+    // Trả về true nếu thành công và đã gọi reset, false nếu thất bại/timeout.
+    bool checkAndSaveCredentials(const String& ssid, const String& pass);
+
+    // API: Buộc đưa thiết bị về chế độ cấu hình (Change Network)
+    // Thực hiện reset.
+    void resetToProvisioning();
 
 private:
-    // Tên miền mDNS cố định (ví dụ: http://famio.local)
-    const char* MDNS_HOSTNAME = "famio"; 
+    FileManager* fm;
+    bool operational_mode = false;
+    int scan_state = -2; // -2: chưa quét, -1: đang quét, >=0: số mạng tìm thấy
+
+    // Hàm nội bộ: Tải Credentials từ SD Card
+    bool loadCredentials(String& ssid, String& pass, String& ap_ssid, String& ap_pass);
+
+    // Hàm nội bộ: Lưu Credentials vào SD Card
+    bool saveCredentials(const String& ssid, const String& pass);
+
+    // Hàm nội bộ: Xóa Credentials
+    void clearCredentials();
 };
 
 #endif // CONNECTIVITYMANAGER_H
