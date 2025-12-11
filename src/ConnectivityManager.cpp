@@ -133,7 +133,6 @@ bool ConnectivityManager::checkAndSaveCredentials(const String &ssid, const Stri
         return false; // Chỉ thực hiện khi đang ở Provisioning
 
     // 1. Cố gắng kết nối với Timeout 30s
-    WiFi.disconnect(true); // Ngắt kết nối STA trước (nếu có)
     WiFi.begin(ssid.c_str(), pass.c_str());
 
     long start_time = millis();
@@ -154,16 +153,11 @@ bool ConnectivityManager::checkAndSaveCredentials(const String &ssid, const Stri
     {
         // Thành công: Lưu config và reset
         saveCredentials(ssid, pass);
+        operational_mode = true;
         // Lưu ý: Chúng ta không gọi ESP.restart() trong hàm này mà để AppWebServer xử lý phản hồi API và reset
-        return true;
     }
-    else
-    {
-        // Thất bại: Quay lại Provisioning Mode (đã xảy ra ngầm)
-        WiFi.disconnect(true);
-        WiFi.mode(WIFI_AP_STA); // Đảm bảo AP+STA vẫn chạy
-        return false;
-    }
+    WiFi.mode(WIFI_AP_STA); // Đảm bảo AP+STA vẫn chạy
+    return connected;
 }
 
 // API: Buộc đưa thiết bị về chế độ cấu hình
