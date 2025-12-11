@@ -1,5 +1,4 @@
 #include "ConnectivityManager.h"
-#include "Constants.h"
 
 ConnectivityManager::ConnectivityManager(FileManager *fileManager) : fm(fileManager)
 {
@@ -79,9 +78,10 @@ bool ConnectivityManager::begin()
     if (!WiFi.softAP(ap_ssid, ap_pass))
     {
         log_e("Soft AP creation failed.");
-        while (1);
+        while (1)
+            ;
     }
-    Serial.printf("AP SSID: %s | IP: %s\n", ap_ssid, WiFi.softAPIP().toString().c_str());
+    Serial.printf("AP SSID: %s | IP: %s\n", ap_ssid.c_str(), WiFi.softAPIP().toString().c_str());
     operational_mode = false;
     return true;
 }
@@ -91,8 +91,19 @@ int ConnectivityManager::startScanNetworks()
 {
     if (!operational_mode)
     {
-        // Chỉ quét khi đang ở chế độ Provisioning (AP+STA)
-        scan_state = WiFi.scanNetworks(true, false); // true: async, false: passive
+        if (scan_state == -2)
+        {
+            // Chỉ quét khi đang ở chế độ Provisioning (AP+STA)
+            scan_state = WiFi.scanNetworks(true, false); // true: async, false: passive
+        }
+        else if (scan_state == -1)
+        {
+            int res = WiFi.scanComplete();
+            if (res >= 0)
+            {
+                scan_state = res;
+            }
+        }
     }
     return scan_state;
 }
@@ -160,4 +171,11 @@ void ConnectivityManager::resetToProvisioning()
 {
     clearCredentials();
     ESP.restart(); // Reset sẽ tự động đưa về Provisioning Mode
+}
+
+// API: Kích hoạt reset thiết bị thủ công
+void ConnectivityManager::manualReset()
+{
+    Serial.println("Manual reset triggered from API. Restarting device...");
+    ESP.restart();
 }

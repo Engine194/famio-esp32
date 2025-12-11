@@ -39,11 +39,16 @@ private:
     void handleFmStatus();
     void handleFmTune();
     void handleSystemVolume();
+    // CORS helper
+    void sendCORSHeaders();
+    const char* getContentType(const String& path);
     // API Cấu hình Wi-Fi
     void handleGetWifiStatus();    // Trạng thái (AP/STA/Operational)
     void handleScanNetworks();     // Bắt đầu/Lấy kết quả quét
     void handleSubmitWifiConfig(); // Kiểm tra và lưu config
     void handleResetWifiConfig();  // Buộc về Provisioning Mode
+    // API Hệ thống
+    void handleSystemReset();      // Kích hoạt reset thủ công
     // ... Thêm các hàm xử lý API khác
 };
 

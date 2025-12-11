@@ -58,7 +58,8 @@ void setup()
     {
         // Nếu kết nối/cấu hình thất bại, khởi động lại để thử lại
         Serial.println("Hệ thống không thể kết nối");
-        while (1);
+        while (1)
+            ;
     }
 
     // KHỞI TẠO WEB SERVER
@@ -71,7 +72,6 @@ void setup()
 
 void loop()
 {
-    // 1. Xử lý Web Server
     appWebServer.handleClient();
     delay(10);
 }

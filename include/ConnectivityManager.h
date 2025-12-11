@@ -4,11 +4,9 @@
 #include <WiFi.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
-#include "FileManager.h" // Cần để truy cập FileManager
+#include "FileManager.h"
+#include "Constants.h" // Cần để truy cập FileManager
 
-// Hằng số
-#define CONNECTION_TIMEOUT_S 30
-#define AP_PASSWORD "12345678" // Mật khẩu tối thiểu 8 ký tự
 
 class ConnectivityManager {
 public:
@@ -45,6 +43,10 @@ public:
     // API: Buộc đưa thiết bị về chế độ cấu hình (Change Network)
     // Thực hiện reset.
     void resetToProvisioning();
+
+    // API: Kích hoạt reset thiết bị thủ công (từ web)
+    // Thực hiện khởi động lại thiết bị.
+    void manualReset();
 
 private:
     FileManager* fm;

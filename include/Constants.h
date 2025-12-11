@@ -33,6 +33,8 @@
 #define AP_SSID_CONFIG_KEY "ap_ssid"
 #define AP_PWD_CONFIG_KEY "ap_password"
 
+#define CONNECTION_TIMEOUT_S 30
+
 // Thư mục gốc chứa tất cả dữ liệu dự án trên SD Card
 #define PROJECT_ROOT_DIR "/famio"
 #define CONFIG_FILE_PATH "/config" // Đường dẫn file config Wi-Fi trên SD Card
