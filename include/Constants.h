@@ -26,6 +26,7 @@
 // =========================================================
 #define DEFAULT_WIFI_SSID "ESP32_Famio_AP"
 #define DEFAULT_WIFI_PASS "12345678"
+#define MDNS_HOSTNAME "famio"
 
 #define STA_SSID_CONFIG_KEY "sta_ssid"
 #define STA_PWD_CONFIG_KEY "sta_password"

@@ -1,4 +1,5 @@
 #include "ConnectivityManager.h"
+#include <ESPmDNS.h>
 
 ConnectivityManager::ConnectivityManager(FileManager *fileManager) : fm(fileManager)
 {
@@ -60,29 +61,45 @@ bool ConnectivityManager::begin()
         {
             Serial.printf("\nSTA Connected. IP: %s\n", WiFi.localIP().toString().c_str());
             operational_mode = true;
-            return true;
         }
         else
         {
             // Thất bại: Chuyển về chế độ cấu hình
             Serial.println("\nSTA Connect FAILED/TIMEOUT. Entering Provisioning Mode.");
             clearCredentials(); // Xóa cấu hình sai để bắt đầu lại
+            operational_mode = false;
             ESP.restart();
             // FALL-THROUGH để chạy Provisioning Mode
         }
     }
 
-    // --- PHA CẤU HÌNH (PROVISIONING PHASE) ---
-    Serial.println("Starting Provisioning Mode (AP+STA)...");
-    WiFi.mode(WIFI_AP_STA);
-    if (!WiFi.softAP(ap_ssid, ap_pass))
+    if (!operational_mode)
     {
-        log_e("Soft AP creation failed.");
-        while (1)
-            ;
+        // --- PHA CẤU HÌNH (PROVISIONING PHASE) ---
+        Serial.println("Starting Provisioning Mode (AP+STA)...");
+        WiFi.mode(WIFI_AP_STA);
+        if (!WiFi.softAP(ap_ssid, ap_pass))
+        {
+            log_e("Soft AP creation failed.");
+            while (1)
+                ;
+        }
+        Serial.printf("AP SSID: %s | IP: %s\n", ap_ssid.c_str(), WiFi.softAPIP().toString().c_str());
     }
-    Serial.printf("AP SSID: %s | IP: %s\n", ap_ssid.c_str(), WiFi.softAPIP().toString().c_str());
-    operational_mode = false;
+    // =========================================================
+    // *** KHỞI TẠO MDNS (ÁP DỤNG CHO CẢ AP VÀ STA) ***
+    // =========================================================
+    if (MDNS.begin(MDNS_HOSTNAME))
+    {
+        // Đăng ký dịch vụ HTTP (Web Server)
+        MDNS.addService("http", "tcp", 80);
+        Serial.printf("mDNS Ready. Access at: http://%s.local\n", MDNS_HOSTNAME);
+    }
+    else
+    {
+        Serial.println("mDNS failed to start.");
+    }
+    // =========================================================
     return true;
 }
 

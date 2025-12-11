@@ -272,7 +272,7 @@ void AppWebServer::handleResetWifiConfig()
     // API đưa về Provisioning Mode
     sendCORSHeaders();
     server.send(200, "application/json", "{\"status\":\"success\", \"message\":\"Resetting to Provisioning Mode. Device will restart.\"}");
-    delay(100);
+    delay(500);
     connectivity->resetToProvisioning(); // Thực hiện reset
 }
 
@@ -281,7 +281,7 @@ void AppWebServer::handleSystemReset()
     // API kích hoạt reset thiết bị thủ công
     sendCORSHeaders();
     server.send(200, "application/json", "{\"status\":\"success\", \"message\":\"Device is restarting...\"}");
-    delay(100);
+    delay(500);
     connectivity->manualReset(); // Thực hiện reset
 }
 
