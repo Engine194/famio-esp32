@@ -36,9 +36,18 @@ private:
     // Các hàm xử lý request cụ thể
     void handleRoot();
     void handleStaticFile();
-    void handleFmStatus();
-    void handleFmTune();
     void handleSystemVolume();
+
+    // API FM module
+    void handleFmPower();
+    void handleFmSeek();
+    void handleFmStatus();
+    void handleFmSaveChannel();
+    void handleFmSelectChannel();
+    void handleFmLoadChannels();
+    void handleFmSetFreq();
+    void handleFmVolume();
+    void handleFmDeleteChannel();
     // CORS helper
     void sendCORSHeaders();
     const char* getContentType(const String& path);

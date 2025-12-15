@@ -18,7 +18,7 @@
 
 FileManager fileManager;
 PowerManager powerManager;
-FMRadio fmRadio;
+FMRadio fmRadio(&fileManager);
 ConnectivityManager connectivityManager(&fileManager);
 AppWebServer appWebServer(&fmRadio, &powerManager, &fileManager, &connectivityManager);
 

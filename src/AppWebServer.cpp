@@ -37,9 +37,14 @@ void AppWebServer::registerAPIs()
 
     // API Lấy trạng thái FM
     server.on("/api/fm/status", HTTP_GET, std::bind(&AppWebServer::handleFmStatus, this));
-
-    // API Điều chỉnh tần số (POST)
-    server.on("/api/fm/tune", HTTP_POST, std::bind(&AppWebServer::handleFmTune, this));
+    server.on("/api/fm/power", HTTP_POST, std::bind(&AppWebServer::handleFmPower, this));
+    server.on("/api/fm/setfreq", HTTP_POST, std::bind(&AppWebServer::handleFmSetFreq, this));
+    server.on("/api/fm/seek", HTTP_GET, std::bind(&AppWebServer::handleFmSeek, this));
+    server.on("/api/fm/volume", HTTP_PATCH, std::bind(&AppWebServer::handleFmVolume, this));
+    server.on("/api/fm/save", HTTP_POST, std::bind(&AppWebServer::handleFmSaveChannel, this));
+    server.on("/api/fm/select", HTTP_GET, std::bind(&AppWebServer::handleFmSelectChannel, this));
+    server.on("/api/fm/channels", HTTP_GET, std::bind(&AppWebServer::handleFmLoadChannels, this));
+    server.on("/api/fm/delete", HTTP_DELETE, std::bind(&AppWebServer::handleFmDeleteChannel, this));
 
     // API Điều chỉnh âm lượng
     server.on("/api/system/volume", HTTP_POST, std::bind(&AppWebServer::handleSystemVolume, this));
@@ -119,40 +124,25 @@ void AppWebServer::handleFmStatus()
     JsonDocument statusDoc;
 
     // GỌI HÀM CỦA FMRADIO ĐỂ LẤY TRẠNG THÁI THẬT
-    // if (fmRadio) {
-    //     fmRadio->getStatus(&statusDoc);
-    // } else { ... }
-
-    // Giả lập dữ liệu (Xóa khi tích hợp FMRadio)
-    statusDoc["freq"] = 99.5;
-    statusDoc["volume"] = 75;
-    statusDoc["stereo"] = true;
-    statusDoc["signal"] = 68;
+    if (fmRadio)
+    {
+        fmRadio->getStatus(&statusDoc);
+    }
+    else
+    {
+        // Giả lập dữ liệu (Xóa khi tích hợp FMRadio)
+        statusDoc["isPowered"] = false;
+        statusDoc["freq"] = 99.5;
+        statusDoc["volume"] = 75;
+        statusDoc["stereo"] = true;
+        statusDoc["signal"] = 68;
+    }
 
     String response;
     serializeJson(statusDoc, response);
 
     sendCORSHeaders();
     server.send(200, "application/json", response);
-}
-
-void AppWebServer::handleFmTune()
-{
-    // Kiểm tra xem tham số POST 'freq' có được gửi không
-    if (server.hasArg("freq"))
-    {
-        float newFreq = server.arg("freq").toFloat();
-
-        // fmRadio->setFrequency(newFreq); // Gọi hàm của module FMRadio
-
-        sendCORSHeaders();
-        server.send(200, "text/plain", "OK");
-    }
-    else
-    {
-        sendCORSHeaders();
-        server.send(400, "text/plain", "Tham số 'freq' bị thiếu.");
-    }
 }
 
 void AppWebServer::handleSystemVolume()
@@ -319,4 +309,129 @@ const char *AppWebServer::getContentType(const String &path)
     if (path.endsWith(".txt"))
         return "text/plain";
     return "application/octet-stream";
+}
+
+void AppWebServer::handleFmPower()
+{
+    sendCORSHeaders();
+    if (server.hasArg("state"))
+    {
+        String state = server.arg("state");
+        if (state == "on")
+        {
+            fmRadio->powerOn();
+            server.send(200, "application/json", "{\"status\":\"success\", \"powered\":true}");
+            return;
+        }
+        else if (state == "off")
+        {
+            fmRadio->powerOff();
+            server.send(200, "application/json", "{\"status\":\"success\", \"powered\":false}");
+            return;
+        }
+    }
+    server.send(400, "application/json", "{\"status\":\"error\", \"message\":\"Thiếu tham số state (on/off)\"}");
+}
+
+void AppWebServer::handleFmSeek()
+{
+    sendCORSHeaders();
+    if (server.hasArg("direction"))
+    {
+        String dir = server.arg("direction");
+        if (dir == "up")
+        {
+            fmRadio->seekUp();
+        }
+        else if (dir == "down")
+        {
+            fmRadio->seekDown();
+        }
+        else if (dir == "next")
+        {
+            fmRadio->autoSeekNext();
+        }
+        else
+        {
+            server.send(400, "application/json", "{\"status\":\"error\", \"message\":\"Tham số direction không hợp lệ (up/down/next)\"}");
+            return;
+        }
+        server.send(200, "application/json", "{\"status\":\"success\", \"freq\":" + String(fmRadio->getCurrentFrequency(), 1) + "}");
+        return;
+    }
+    server.send(400, "application/json", "{\"status\":\"error\", \"message\":\"Thiếu tham số direction (up/down/next)\"}");
+}
+
+void AppWebServer::handleFmSaveChannel()
+{
+    sendCORSHeaders();
+    float currentFreq = fmRadio->getCurrentFrequency();
+    fmRadio->saveChannel(currentFreq);
+    server.send(200, "application/json", "{\"status\":\"success\", \"message\":\"Đã lưu kênh\", \"freq\":" + String(currentFreq, 1) + "}");
+}
+
+void AppWebServer::handleFmSelectChannel()
+{
+    sendCORSHeaders();
+    if (server.hasArg("index"))
+    {
+        int index = server.arg("index").toInt();
+        fmRadio->selectSavedChannel(index);
+        server.send(200, "application/json", "{\"status\":\"success\", \"freq\":" + String(fmRadio->getCurrentFrequency(), 1) + "}");
+        return;
+    }
+    server.send(400, "application/json", "{\"status\":\"error\", \"message\":\"Thiếu tham số index\"}");
+}
+
+void AppWebServer::handleFmLoadChannels()
+{
+    sendCORSHeaders();
+    JsonDocument doc;
+    fmRadio->getSavedChannels(&doc);
+
+    String output;
+    serializeJson(doc, output);
+    server.send(200, "application/json", output);
+}
+
+void AppWebServer::handleFmSetFreq()
+{
+    sendCORSHeaders();
+    if (server.hasArg("freq"))
+    {
+        float freq = server.arg("freq").toFloat();
+        if (freq >= 87.0 && freq <= 108.0)
+        {
+            fmRadio->setFrequency(freq);
+            server.send(200, "application/json", "{\"status\":\"success\", \"freq\":" + String(fmRadio->getCurrentFrequency(), 1) + "}");
+            return;
+        }
+    }
+    server.send(400, "application/json", "{\"status\":\"error\", \"message\":\"Tần số không hợp lệ (87.0-108.0)\"}");
+}
+
+void AppWebServer::handleFmVolume()
+{
+    sendCORSHeaders();
+    if (server.hasArg("level"))
+    {
+        int level = server.arg("level").toInt();
+        fmRadio->setVolume(level);
+        server.send(200, "application/json", "{\"status\":\"success\", \"volume\":" + String(fmRadio->getVolume()) + "}");
+        return;
+    }
+    server.send(400, "application/json", "{\"status\":\"error\", \"message\":\"Thiếu tham số level (0-15)\"}");
+}
+
+// Thêm API xóa kênh
+void AppWebServer::handleFmDeleteChannel()
+{
+    if (server.hasArg("index"))
+    {
+        int index = server.arg("index").toInt();
+        fmRadio->deleteChannel(index);
+        server.send(200, "application/json", "{\"status\":\"success\", \"message\":\"Đã xóa kênh index " + String(index) + "\"}");
+        return;
+    }
+    server.send(400, "application/json", "{\"status\":\"error\", \"message\":\"Thiếu tham số index\"}");
 }
