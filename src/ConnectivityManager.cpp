@@ -134,6 +134,7 @@ void ConnectivityManager::getScanResults(JsonArray &array)
         for (int i = 0; i < scan_state; ++i)
         {
             JsonObject network = array.add<JsonObject>();
+            network["bssid"] = WiFi.BSSIDstr(i);
             network["ssid"] = WiFi.SSID(i);
             network["rssi"] = WiFi.RSSI(i);
             network["channel"] = WiFi.channel(i);
@@ -180,6 +181,7 @@ bool ConnectivityManager::checkAndSaveCredentials(const String &ssid, const Stri
 // API: Buộc đưa thiết bị về chế độ cấu hình
 void ConnectivityManager::resetToProvisioning()
 {
+    Serial.println("Manual reset to Provisioning from API. Restarting device...");
     clearCredentials();
     ESP.restart(); // Reset sẽ tự động đưa về Provisioning Mode
 }
