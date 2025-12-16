@@ -319,7 +319,8 @@ void AppWebServer::handleFmPower()
         String state = server.arg("state");
         if (state == "on")
         {
-            fmRadio->powerOn();
+            // Initialize and power on FM radio hardware
+            fmRadio->begin();
             server.send(200, "application/json", "{\"status\":\"success\", \"powered\":true}");
             return;
         }
