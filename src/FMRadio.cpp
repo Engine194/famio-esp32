@@ -21,20 +21,22 @@ void FMRadio::begin()
     // Note: Wire.begin() is already called in setup(), so I2C bus is ready
     rx.setup();
     delay(100);
-    
+
     // 4. Configure band and spacing
     rx.setBand(RDA5807_BAND);
     rx.setSpace(RDA5807_SPACE);
-    
+
     // 5. Set volume
     rx.setVolume(currentVolume);
+    rx.setMono(false);
+    rx.setGpio(3,1);
+
 
     // 6. Wait for chip to stabilize
     delay(500);
 
     // 7. Set loaded frequency
     setFrequency(currentFreq);
-    
     isPowered = true;
     Serial.println("FMRadio: RDA5807 chip initialized successfully.");
 }
@@ -47,10 +49,10 @@ void FMRadio::setFrequency(float freq_mhz)
     // Convert MHz to library format (frequency in 10 kHz units)
     // Example: 99.5 MHz = 9950 in library format (99.5 * 100)
     uint16_t freq_code = (uint16_t)(freq_mhz * 100);
-    
+
     rx.setFrequency(freq_code);
     currentFreq = freq_mhz;
-    
+    saveConfig();
     Serial.printf("FMRadio: Frequency set to %.1f MHz\n", freq_mhz);
 }
 
@@ -60,28 +62,22 @@ void FMRadio::setFrequency(float freq_mhz)
 void FMRadio::seekUp()
 {
     Serial.println("FMRadio: Seeking up...");
-    
     // RDA5807 library seek function
     // RDA_SEEK_WRAP: wrap around at band edges
     // RDA_SEEK_UP: seek upward
     rx.seek(RDA_SEEK_WRAP, RDA_SEEK_UP);
-    
     // Get the new frequency from chip (in 10 kHz units)
-    uint16_t freq_code = rx.getFrequency();
+    uint16_t freq_code = rx.getRealFrequency();
     currentFreq = freq_code / 100.0f;
-    
     Serial.printf("FMRadio: Seek up complete. New frequency: %.1f MHz\n", currentFreq);
 }
 
 void FMRadio::seekDown()
 {
     Serial.println("FMRadio: Seeking down...");
-    
     rx.seek(RDA_SEEK_WRAP, RDA_SEEK_DOWN);
-    
-    uint16_t freq_code = rx.getFrequency();
+    uint16_t freq_code = rx.getRealFrequency();
     currentFreq = freq_code / 100.0f;
-    
     Serial.printf("FMRadio: Seek down complete. New frequency: %.1f MHz\n", currentFreq);
 }
 
@@ -127,14 +123,12 @@ void FMRadio::setVolume(uint8_t volume)
 {
     if (volume > 15)
         volume = 15;
-    
     if (volume == currentVolume)
         return;
 
     currentVolume = volume;
     rx.setVolume(volume);
     saveConfig(); // Save volume to SD card
-    
     Serial.printf("FMRadio: Volume set to %d\n", currentVolume);
 }
 
@@ -230,10 +224,9 @@ void FMRadio::getStatus(JsonDocument *doc)
     }
 
     updateStatus();
-
     (*doc)["freq"] = currentFreq;
     (*doc)["rssi"] = rssi;
-    (*doc)["stereo"] = rx.isStereo();  // Use isStereo() instead of getStereoIndicator()
+    (*doc)["stereo"] = rx.isStereo(); // Use isStereo() instead of getStereoIndicator()
     (*doc)["isPowered"] = isPowered;
     (*doc)["volume"] = currentVolume;
 }

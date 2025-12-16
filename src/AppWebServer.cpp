@@ -40,7 +40,7 @@ void AppWebServer::registerAPIs()
     server.on("/api/fm/power", HTTP_POST, std::bind(&AppWebServer::handleFmPower, this));
     server.on("/api/fm/setfreq", HTTP_POST, std::bind(&AppWebServer::handleFmSetFreq, this));
     server.on("/api/fm/seek", HTTP_GET, std::bind(&AppWebServer::handleFmSeek, this));
-    server.on("/api/fm/volume", HTTP_PATCH, std::bind(&AppWebServer::handleFmVolume, this));
+    server.on("/api/fm/volume", HTTP_POST, std::bind(&AppWebServer::handleFmVolume, this));
     server.on("/api/fm/save", HTTP_POST, std::bind(&AppWebServer::handleFmSaveChannel, this));
     server.on("/api/fm/select", HTTP_GET, std::bind(&AppWebServer::handleFmSelectChannel, this));
     server.on("/api/fm/channels", HTTP_GET, std::bind(&AppWebServer::handleFmLoadChannels, this));
