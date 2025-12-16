@@ -135,7 +135,7 @@ void AppWebServer::handleFmStatus()
         statusDoc["freq"] = 99.5;
         statusDoc["volume"] = 75;
         statusDoc["stereo"] = true;
-        statusDoc["signal"] = 68;
+        statusDoc["rssi"] = 68;
     }
 
     String response;

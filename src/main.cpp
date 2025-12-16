@@ -64,6 +64,9 @@ void setup()
 
     // KHỞI TẠO WEB SERVER
     appWebServer.begin();
+    Wire.begin();
+    // HOẶC: Wire.begin(SDA_PIN, SCL_PIN); nếu bạn dùng chân tùy chỉnh
+    Serial.println("SETUP: Khởi tạo I2C Bus thành công.");
 }
 
 // =========================================================

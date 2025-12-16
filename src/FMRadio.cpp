@@ -25,8 +25,8 @@ void FMRadio::begin()
     loadConfig();
 
     // 2. Khởi tạo giao tiếp I2C
-    Wire.begin();
-    Serial.println("FMRadio: Khởi tạo I2C hoàn tất.");
+    // Wire.begin();
+    // Serial.println("FMRadio: Khởi tạo I2C hoàn tất.");
 
     // 3. Bật chip
     powerOn();
@@ -159,7 +159,7 @@ void FMRadio::getStatus(JsonDocument *doc)
 
     // Điền dữ liệu vào JsonDocument
     (*doc)["freq"] = currentFreq;
-    (*doc)["signal"] = rssi;
+    (*doc)["rssi"] = rssi;
     (*doc)["stereo"] = stereo_status;
     (*doc)["isPowered"] = isPowered;
 }
