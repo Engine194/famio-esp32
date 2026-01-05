@@ -10,6 +10,7 @@
 #include "PowerManager.h"
 #include "FMRadio.h"
 #include "AppWebServer.h"
+#include "BluetoothManager.h"
 #include "ConnectivityManager.h"
 
 // =========================================================
@@ -17,10 +18,11 @@
 // =========================================================
 
 FileManager fileManager;
+BluetoothManager bluetooth(&fileManager);
 PowerManager powerManager;
 FMRadio fmRadio(&fileManager);
 ConnectivityManager connectivityManager(&fileManager);
-AppWebServer appWebServer(&fmRadio, &powerManager, &fileManager, &connectivityManager);
+AppWebServer appWebServer(&fmRadio, &powerManager, &fileManager, &bluetooth, &connectivityManager);
 
 // =========================================================
 // Setup() - Khởi tạo Hệ thống
@@ -29,8 +31,31 @@ AppWebServer appWebServer(&fmRadio, &powerManager, &fileManager, &connectivityMa
 void setup()
 {
     Serial.begin(115200);
-    delay(100);
+    delay(500);
     Serial.println("\n--- Bắt đầu Hệ thống Famio FM Radio ESP32 ---");
+
+
+    // 1. Kiểm tra sự tồn tại vật lý của PSRAM
+    if (psramInit()) {
+        Serial.println("PSRAM: Đã tìm thấy chip vật lý và khởi tạo thành công.");
+    } else {
+        Serial.println("PSRAM: Không tìm thấy chip hoặc khởi tạo thất bại!");
+    }
+
+    // 2. Kiểm tra dung lượng PSRAM khả dụng
+    size_t psramSize = ESP.getPsramSize();
+    size_t freePsram = ESP.getFreePsram();
+
+    if (psramSize > 0) {
+        Serial.printf("Tổng dung lượng PSRAM: %d bytes (%.2f MB)\n", psramSize, psramSize / (1024.0 * 1024.0));
+        Serial.printf("Dung lượng PSRAM trống: %d bytes\n", freePsram);
+    } else {
+        Serial.println("CẢNH BÁO: Hệ thống không nhận được dung lượng PSRAM nào.");
+    }
+
+    // 3. Kiểm tra Heap nội bộ (RAM mặc định của ESP32) để đối chiếu
+    Serial.printf("DRAM trống (Internal RAM): %d bytes\n", ESP.getFreeHeap());
+    Serial.println("--------------------------------\n");
 
     // Khởi tạo PowerManager và SD Card trước
     powerManager.begin();

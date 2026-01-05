@@ -1,10 +1,11 @@
 #include "AppWebServer.h"
 #include <ArduinoJson.h>
 #include <ConnectivityManager.h>
+#include <BluetoothManager.h>
 
 // Constructor: Khởi tạo Web Server ở cổng 80 và lưu trữ con trỏ
-AppWebServer::AppWebServer(FMRadio *radio, PowerManager *power, FileManager *fileMgr, ConnectivityManager *connectivity)
-    : server(80), fmRadio(radio), powerManager(power), fileManager(fileMgr), connectivity(connectivity)
+AppWebServer::AppWebServer(FMRadio *radio, PowerManager *power, FileManager *fileMgr, BluetoothManager *bluetooth, ConnectivityManager *connectivity)
+    : server(80), fmRadio(radio), btManager(bluetooth), powerManager(power), fileManager(fileMgr), connectivity(connectivity)
 {
 
     // Kiểm tra tính hợp lệ của con trỏ (tùy chọn)
@@ -46,9 +47,6 @@ void AppWebServer::registerAPIs()
     server.on("/api/fm/channels", HTTP_GET, std::bind(&AppWebServer::handleFmLoadChannels, this));
     server.on("/api/fm/delete", HTTP_DELETE, std::bind(&AppWebServer::handleFmDeleteChannel, this));
 
-    // API Điều chỉnh âm lượng
-    server.on("/api/system/volume", HTTP_POST, std::bind(&AppWebServer::handleSystemVolume, this));
-
     // API Cấu hình Wi-Fi
     server.on("/api/wifi/status", HTTP_GET, std::bind(&AppWebServer::handleGetWifiStatus, this));
     server.on("/api/wifi/scan", HTTP_GET, std::bind(&AppWebServer::handleScanNetworks, this));
@@ -58,9 +56,16 @@ void AppWebServer::registerAPIs()
     // API Hệ thống
     server.on("/api/system/reset", HTTP_POST, std::bind(&AppWebServer::handleSystemReset, this));
 
+    // API bluetooth
+    server.on("/api/bt/status", HTTP_GET, std::bind(&AppWebServer::handleBTStatus, this));
+    server.on("/api/bt/power", HTTP_POST, std::bind(&AppWebServer::handleBTPower, this));
+    server.on("/api/bt/volume", HTTP_POST, std::bind(&AppWebServer::handleBTVolume, this));
+    server.on("/api/bt/control", HTTP_POST, std::bind(&AppWebServer::handleBTControl, this));
+    server.on("/api/bt/confirm", HTTP_POST, std::bind(&AppWebServer::handleBTConfirmPin, this));
+
     // 1. Root ("/") - Trang chính
     server.on("/", HTTP_GET, std::bind(&AppWebServer::handleRoot, this));
-    AppWebServer::handleStaticFile();
+    // AppWebServer::handleStaticFile();
 
     // Global handler: tất cả các OPTIONS (preflight) và các request không khớp
     server.onNotFound([this]()
@@ -143,25 +148,6 @@ void AppWebServer::handleFmStatus()
 
     sendCORSHeaders();
     server.send(200, "application/json", response);
-}
-
-void AppWebServer::handleSystemVolume()
-{
-    // Kiểm tra xem tham số POST 'level' có được gửi không
-    if (server.hasArg("level"))
-    {
-        int newLevel = server.arg("level").toInt();
-
-        // powerManager->setVolume(newLevel); // Gọi hàm của module PowerManager
-
-        sendCORSHeaders();
-        server.send(200, "text/plain", "OK");
-    }
-    else
-    {
-        sendCORSHeaders();
-        server.send(400, "text/plain", "Tham số 'level' bị thiếu.");
-    }
 }
 
 // =========================================================
@@ -319,6 +305,8 @@ void AppWebServer::handleFmPower()
         String state = server.arg("state");
         if (state == "on")
         {
+            // Free RAM from bluetooth service
+            btManager->setPower(false);
             // Initialize and power on FM radio hardware
             fmRadio->begin();
             server.send(200, "application/json", "{\"status\":\"success\", \"powered\":true}");
@@ -435,4 +423,104 @@ void AppWebServer::handleFmDeleteChannel()
         return;
     }
     server.send(400, "application/json", "{\"status\":\"error\", \"message\":\"Thiếu tham số index\"}");
+}
+
+// Bluetooth
+// Hàm xử lý Status
+void AppWebServer::handleBTStatus()
+{
+    sendCORSHeaders();
+    JsonDocument doc;
+    btManager->getStatus(doc);
+    String response;
+    serializeJson(doc, response);
+    server.send(200, "application/json", response);
+}
+
+// Hàm xử lý Bật/Tắt
+void AppWebServer::handleBTPower()
+{
+    sendCORSHeaders();
+    if (server.hasArg("plain"))
+    {
+        JsonDocument doc;
+        deserializeJson(doc, server.arg("plain"));
+        bool power = doc["power"] | false;
+        if (power)
+        {
+            fmRadio->powerOff();
+        }
+        btManager->setPower(power);
+        server.send(200, "application/json", "{\"status\":\"ok\"}");
+    }
+    server.send(200, "application/json", "{\"status\":\"failed\"}");
+}
+
+// API Chỉnh Volume
+void AppWebServer::handleBTVolume()
+{
+    sendCORSHeaders();
+    if (server.hasArg("plain"))
+    {
+        JsonDocument doc; // ArduinoJson V7
+        deserializeJson(doc, server.arg("plain"));
+
+        if (doc["value"].is<uint8_t>())
+        {
+            uint8_t vol = doc["value"]; // 0-127
+            btManager->setVolume(vol);
+            server.send(200, "application/json", "{\"status\":\"ok\"}");
+        }
+        else
+        {
+            server.send(400, "application/json", "{\"error\":\"Missing value\"}");
+        }
+    }
+}
+
+// API Điều khiển trình phát (Play/Pause/Next/Prev)
+void AppWebServer::handleBTControl()
+{
+    sendCORSHeaders();
+    if (server.hasArg("plain"))
+    {
+        JsonDocument doc;
+        deserializeJson(doc, server.arg("plain"));
+
+        String cmd = doc["cmd"] | "";
+
+        if (cmd == "play")
+            btManager->play();
+        else if (cmd == "pause")
+            btManager->pause();
+        else if (cmd == "next")
+            btManager->next();
+        else if (cmd == "prev")
+            btManager->previous();
+
+        server.send(200, "application/json", "{\"status\":\"ok\"}");
+    }
+}
+void AppWebServer::handleBTConfirmPin()
+{
+    sendCORSHeaders();
+    if (server.hasArg("plain"))
+    {
+        JsonDocument doc;
+        deserializeJson(doc, server.arg("plain"));
+        String pinCodeStr = doc["pin"] | "";
+        Serial.printf("Input Pin 1: %s\n", pinCodeStr);
+
+        if (pinCodeStr.isEmpty())
+        {
+            server.send(200, "application/json", "{\"status\":\"failed\"}");
+        }
+        else
+        {
+            long pinCode = pinCodeStr.toInt();
+            Serial.printf("Input Pin 2: %d\n", pinCode);
+            btManager->confirmPinCode(pinCode);
+            server.send(200, "application/json", "{\"status\":\"ok\"}");
+        }
+    }
 }

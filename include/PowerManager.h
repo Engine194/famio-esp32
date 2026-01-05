@@ -18,19 +18,10 @@ public:
     float getBatteryVoltage();
     int getBatteryLevel(); // Trả về phần trăm pin (0-100)
 
-    // 2. Quản lý Âm lượng 
-    void setVolume(int level); // Thiết lập âm lượng (0-100)
-    int getVolume() const { return currentVolume; }
-    
-    // 3. Đọc biến trở
-    int readPotentiometer(); // Đọc ADC từ biến trở và trả về 0-100
-
     // 4. Quản lý Nguồn
     void shutdown();
 
 private:
-    int currentVolume; // Lưu trữ mức âm lượng hiện tại (0-100)
-
     float mapAdcToVoltage(int raw_adc);
 };
 
